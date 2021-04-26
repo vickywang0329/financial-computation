@@ -1,0 +1,255 @@
+import numpy as np
+maxstart = 70  # 起始最大的股價
+s0 = 50
+K = 70
+
+numsim = 1000
+numrep = 100
+T = 1
+t0 = 0.75
+r = 0.1
+q = 0
+sigma = 0.4
+n = 100
+dt = (T-t0)/n
+u = np.exp(sigma*np.sqrt(dt))
+d = np.exp(-sigma*np.sqrt(dt))
+p =  (np.exp((r-q)*dt)-d) / (u-d)
+print(u,d,p)
+
+St = np.zeros((n+1,n+1))
+
+for j in range(0,n+1):
+    for i in range(0,j+1): 
+        St[i,j] = s0*np.power(u,(j-2*i)) #u^(n-i)*d^(i)
+def inheritfunc(Smax,St): #基本
+    check = (Smax>=St)
+    if sum(check)==0:
+        return np.array([St])
+    else:
+        return Smax[check]
+def remove_duplicates(ori):
+    new=[]                 #新建一個列表,以防止原來的列表被損壞
+    for i in ori:          #歷遍原來的列表
+        if i not in new:   #如果這個元素不在新表內,則加入
+            new.append(i)
+    return new
+
+
+Smax = np.zeros((n+1,n+1,2*n+3))
+
+for j in range(0,n+1):
+    for i in range(0,j+1):
+        if i == j:
+            Smax[i,j,0] = max(maxstart,St[i,j])      #對角線判斷         
+        elif i == 0 & j>0:
+            Smax[i,j,0] = max(Smax[i,j-1,0],St[i,j],maxstart)  #row1判斷
+        else:
+            upparent = inheritfunc(Smax[i-1,j-1,:],max(St[i,j],maxstart))
+            downparent = inheritfunc(Smax[i,j-1,:],max(St[i,j],maxstart))
+
+            parentall = np.concatenate((upparent,downparent),axis=0) # column接續
+            parentall = remove_duplicates(parentall)
+            Smax[i,j,np.arange(len(parentall))] = parentall
+
+#print(Smax[:,:,[0,1,2,3]])
+
+# Backward induction
+#put還要修正，這樣的作法是American每期都要看。 講義上會看如何從後往前推
+def usputprocess(Smaxij,putij,checkvalue):  # Smax = checkvalue時候的put的價值
+    for k in range(len(Smaxij)):
+        if abs(Smaxij[k] - checkvalue)<10**(-4):  #避免計算上些許的誤差
+            #print("第",k+1,"項")
+            return putij[k]
+            break
+        k = k+1
+#column從倒數2(n-1)開始，裡面是row從0開始
+
+put = np.zeros((n+1,n+1,2*n+3))
+for j in range(0,n+1):
+    j = n-j
+    for i in range(0,j+1):  
+        #print(i,j)
+        if j == n:  #最後一期(col)的資料
+            check = (Smax[i,j,:]>St[i,j])
+            lastcolvalue = Smax[i,j,:][check]-St[i,j]
+            put[i,j,np.arange(len(lastcolvalue))] = lastcolvalue
+        else:
+            for k in range(0,2*n+3): #第三維度放入每一筆的
+                if Smax[i,j,k]>0:
+                    if Smax[i,j,k] in Smax[i,j+1,:] : #up:當下Smax =下一期Smax 
+                        #upparent = Smax[i,j,k]-St[i,j]*u
+                        upparent = usputprocess(Smax[i,j+1,:],put[i,j+1,:],Smax[i,j,k])
+                    else:   #up:當下Smax < 下一期Smax Smax = St*u
+                        #print("Smax值:",Smax[i,j,k],"應該要是:",usputprocess(Smax[i,j+1,:],put[i,j+1,:],St[i][j]*u))
+                        upparent = usputprocess(Smax[i,j+1,:],put[i,j+1,:],St[i][j]*u)
+                        #upparent = 0
+                    #downparent = Smax[i,j,k]-St[i,j]*d
+                    downparent = usputprocess(Smax[i+1,j+1,:],put[i+1,j+1,:],Smax[i,j,k])
+                    put[i,j,k] = (p*upparent +(1-p)*downparent)*np.exp(-r*dt)
+                    #print(put[i,j,k],upparent,downparent)
+europut = put
+# europut[:,:,[0,1,2,3]]
+print(europut[0,0,europut[0,0,:]>0].mean())
+
+#column從倒數2第2(n-1)開始，裡面是row從0開始
+
+put = np.zeros((n+1,n+1,2*n+3))
+for j in range(0,n+1):
+    j = n-j
+    for i in range(0,j+1):  
+        #print(i,j)
+        if j == n:  #最後一期(col)的資料
+            check = (Smax[i,j,:]>St[i,j])
+            lastcolvalue = Smax[i,j,:][check]-St[i,j]
+            put[i,j,np.arange(len(lastcolvalue))] = lastcolvalue
+        else:
+            for k in range(0,2*n+3): #第三維度放入每一筆的
+                if Smax[i,j,k]>0:
+                    if Smax[i,j,k] in Smax[i,j+1,:] : #up:當下Smax =下一期Smax 
+                        #upparent = Smax[i,j,k]-St[i,j]*u
+                        upparent = usputprocess(Smax[i,j+1,:],put[i,j+1,:],Smax[i,j,k])
+                    else:   #up:當下Smax < 下一期Smax Smax = St*u
+                        #print("Smax值:",Smax[i,j,k],"應該要是:",usputprocess(Smax[i,j+1,:],put[i,j+1,:],St[i][j]*u))
+                        upparent = usputprocess(Smax[i,j+1,:],put[i,j+1,:],St[i][j]*u)
+                        #upparent = 0
+                    #downparent = Smax[i,j,k]-St[i,j]*d
+                    downparent = usputprocess(Smax[i+1,j+1,:],put[i+1,j+1,:],Smax[i,j,k]) #down:當下Smax =下一期Smax
+                    put[i,j,k] = (p*upparent +(1-p)*downparent)*np.exp(-r*dt)
+                    put[i,j,k] = max( put[i,j,k],Smax[i,j,k]-St[i,j])  #美式條件(額外增加)
+                    #print(put[i,j,k],upparent,downparent)
+USput = put
+# USput[:,:,[0,1,2,3]]
+print(USput[0,0,USput[0,0,:]>0].mean())
+
+#mt simul
+np.random.normal((r-q - sigma**2 /2)*dt, sigma*np.sqrt(dt),5)
+#n = 5
+#numsim = 10
+def MCsimpathput(s0,r,q,sigma,dt,numsim,n):
+    stockpath = np.zeros((numsim,n))
+    for i in range(n):
+        if i == 0:
+            stockpath[:,i] = np.random.normal(loc=np.log(s0)+(r-q - sigma**2 /2)*dt, scale=sigma*np.sqrt(dt),size =numsim)
+        else: #每期增量
+            stockpath[:,i] = np.random.normal((r-q - sigma**2 /2)*dt, sigma*np.sqrt(dt),numsim) + stockpath[:,i-1]
+    stockpath = np.exp(stockpath)
+    stockpath = np.hstack( (stockpath, np.array([maxstart]*numsim).reshape(numsim,1) ) )
+    #print(np.hstack( (stockpath, np.array([maxstart]*numsim).reshape(numsim,1) ) )  )
+    #print(np.max(stockpath,axis=1))
+    futureputprice = np.max(stockpath,axis=1)-stockpath[:,-2] #axis=1這個軸的座標變動，而其他軸固定
+    #print(futureputprice)
+    return np.mean(np.exp(-r*(T-t0))*futureputprice) 
+
+mcresult = []
+for i in range(numrep):
+    mcresult.append(MCsimpathput(s0,r,q,sigma,dt,numsim,n))
+
+pmn = np.mean(mcresult)
+psd = np.std(mcresult)
+print('Monte Carlo的值:%f \n95%%信賴區間:(%f,%f)' %(pmn,pmn-psd*2,pmn+psd*2))
+
+np.vstack((np.array([0]*3).T,np.array([1,2,3])))
+
+#b1
+print("b1")
+import math
+
+newSmax = np.zeros((n+1,n+1,math.floor(n/2)+1))
+
+for j in range(0,n+1):
+    for i in range(0,j+1):
+        utop = max(j-i,0)
+        udown = max(j-2*i,0)
+        addlist=[]
+        if utop > 0:
+            addlist = np.array([s0*u**(utop-i) for i in range(0,utop-udown+1)])  #由大排到小utop--udown       
+            addlist = addlist[addlist>=maxstart]
+            #print(addlist)
+            #print(len(addlist))
+            if  len(addlist)==0:
+                
+                addlist = np.append(addlist,maxstart)
+        else:  #路徑最大上漲次數為0
+            addlist = np.append(addlist,max(s0,maxstart))
+#             print(addlist)
+        if len(addlist)<1:
+            print("nononono",i,j)
+        #print(addlist)
+        newSmax[i,j,np.arange(len(addlist))] = addlist
+
+print(newSmax[0,0,[0,1,2,3]]-Smax[0,0,[0,1,2,3]])
+print(np.append([],maxstart))
+
+#b2 
+print('b2')
+mu = np.exp((r-q)*dt)
+mu
+rr = np.exp(r*dt) #折現率
+qq = (mu*u-1)/(mu*(u-d)) #新的測度空間中的上漲機率
+
+V = np.zeros((n+1,n+1))
+V[:,n] = [ max(u**(i)-1,0) for i in range(n+1)]
+
+for j in range(n):
+    j = n-1-j  #n-1 to 0 共n col
+    for i in range(j+1):
+        if i ==0:
+            V[0,j] = ((1-qq)*V[1,j+1]+qq*V[0,j+1])*mu/rr
+        else:
+            V[i,j] = ((1-qq)*V[i+1,j+1]+qq*V[i-1,j+1])*mu/rr
+print(V[0,0]*St[0,0])
+
+# 下三角版本
+mu = np.exp((r-q)*dt)
+mu
+rr = np.exp(r*dt) #折現率
+qq = (mu*u-1)/(mu*(u-d)) #新的測度空間中的上漲機率
+
+V = np.zeros((n+1,n+1))
+V[:,n] = [ max(u**(i)-1,0) for i in range(n+1)]
+
+for j in range(n):
+    j = n-1-j  #n-1 to 0 共n col
+    for i in range(j+1):
+        if i ==0:
+            V[0,j] = ((1-qq)*V[0,j+1]+qq*V[1,j+1])*mu/rr
+        else:
+            V[i,j] = ((1-qq)*V[i-1,j+1]+qq*V[i+1,j+1])*mu/rr
+#print(V[0,0]*St[0,0])
+
+
+# 上三角版本
+mu = np.exp((r-q)*dt)
+mu
+rr = np.exp(r*dt) #折現率
+qq = (mu*u-1)/(mu*(u-d)) #新的測度空間中的上漲機率
+
+V = np.zeros((n+1,n+1))
+V[:,n] = [ max(u**(n-i)-1,0) for i in range(n+1)]
+
+for j in range(n):
+    j = n-1-j  #n-1 to 0 共n col
+    for i in range(j+1):
+        if i == j:
+            V[i,i] = ((1-qq)*V[i+1,j+1]+qq*V[i,j+1])*mu/rr
+        else:
+            V[i,j] = ((1-qq)*V[i+2,j+1]+qq*V[i,j+1])*mu/rr
+#print(V[0,0]*St[0,0])
+
+#美式
+V = np.zeros((n+1,n+1))
+V[:,n] = [ max(u**(i)-1,0) for i in range(n+1)]
+#V[:,n] = V[:,n] * St[:,n]
+#def bonus2euput(i,j):
+#    return max(V[i,j]-1,0)*St[i,j]
+
+for j in range(n):
+    j = n-1-j  #n-1 to 0 共n col
+    for i in range(j+1):
+        if i ==0:
+            V[i,j] = max( ((1-qq)*V[0,j+1]+qq*V[1,j+1])*mu/rr , u**(i)-1)
+        else:
+            V[i,j] =max( ((1-qq)*V[i-1,j+1]+qq*V[i+1,j+1])*mu/rr , u**(i)-1)
+            
+print(V[0,0]*St[0,0])
