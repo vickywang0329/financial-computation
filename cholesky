@@ -1,0 +1,150 @@
+#! python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed May 29 15:50:41 2019
+
+@author: vicky
+"""
+
+import numpy as np
+from math import exp,sqrt,log
+
+
+K=100
+r=0.1
+T=0.5
+nos=10000
+nor=20
+C=[[0.125,0.125],[0.125,0.125]]
+#C=[[0.125,-0.125],[-0.125,0.125]]
+'''C=[[0.125,0.0625,0.0625,0.0625,0.0625],
+    [0.0625,0.125,0.0625,0.0625,0.0625],
+    [0.0625,0.0625,0.125,0.0625,0.0625],
+    [0.0625,0.0625,0.0625,0.125,0.0625],
+    [0.0625,0.0625,0.0625,0.0625,0.125]] #包含T的共變異數矩陣'''
+#s=[95,95]
+s=[95,95,95,95,95]
+#q=[0.05,0.05]
+q=[0.05,0.05,0.05,0.05,0.05]
+size=np.shape(C)
+n=size[0]
+
+def cholesky(c):
+    size=np.shape(c)
+    n=size[0]
+    A = np.zeros((n,n),dtype=float)#抓矩陣大小，造一個一樣大的零矩陣
+    
+    A[0][0]=sqrt(c[0][0])#step1
+    for j in range(1,n):
+        A[0][j]=c[0][j]/A[0][0]
+    for i in range(1,n-1):#step2,3
+        b=0
+        for k in range(i):
+            b+=(A[k][i])**2
+        A[i][i]=sqrt(c[i][i]-b)
+        for j in range(i+1,n):
+            d=0
+            for k in range(i):
+                d+= A[k][i]*A[k][j]
+            A[i][j]=(c[i][j]-d)/A[i][i]
+    e=0 #step4
+    for k in range(n-1):
+        e+=(A[k][n-1])**2
+    A[n-1][n-1]=sqrt(c[n-1][n-1]-e)
+    return A
+
+A=np.array(cholesky(C))
+
+payoff_1_pv=[]
+payoff_2_pv=[]
+payoff_3_pv=[]
+S1 = np.zeros((nos,n),dtype=float)
+S2 = np.zeros((nos,n),dtype=float)
+S3 = np.zeros((nos,n),dtype=float)
+T1 = np.zeros((nos,n),dtype=float)
+T2 = np.zeros((nos,n),dtype=float)
+T3 = np.zeros((nos,n),dtype=float)
+
+for nor in range(nor):
+    Samples2_1 = np.random.randn(int(nos/2),n)
+    Samples2_2 = np.random.randn(int(nos/2),n)
+    Samples2_3 = Samples2_2*-1
+    Samples3_1 = np.vstack((Samples2_1,Samples2_2))
+    Samples3_2 = np.vstack((Samples2_1,Samples2_3))
+    std=[]
+    mean=[]
+    for j in range(n):
+        a = []
+        for i in range(nos):
+            a.append(Samples3_2[i][j])
+        std.append(np.std(a))
+        mean.append(np.mean(a))
+    for j in range(n):
+        for i in range(nos):
+            S1[i][j]=Samples3_1[i][j]
+            S2[i][j]=(Samples3_2[i][j]-mean[j])/std[j]
+            S3[i][j]=Samples3_2[i][j]-mean[j]
+            
+    X1 = np.cov(S3.T)
+    A2 =np.linalg.inv(cholesky(X1)) #A*的transpose
+    B = np.dot(A2,A)
+    R1=np.dot(S1,A)        
+    R2=np.dot(S2,A)
+    R3=np.dot(S3,B)
+    
+    for j in range(n):
+        for i in range(nos):
+            T1[i][j]=exp(R1[i][j]+log(s[j])+(r-q[j]-(C[j][j]/T)/2)*T)
+            T2[i][j]=exp(R2[i][j]+log(s[j])+(r-q[j]-(C[j][j]/T)/2)*T)
+            T3[i][j]=exp(R3[i][j]+log(s[j])+(r-q[j]-(C[j][j]/T)/2)*T)#把T除掉才是變異數
+    
+    payoff_1=[]
+    payoff_2=[]
+    payoff_3=[]
+    
+    for i in range(nos):
+        if np.max(T1[i])>K:
+            payoff_1.append(np.max(T1[i])-K)
+        else:
+            payoff_1.append(0)
+    payoff_1_pv.append(np.mean(payoff_1)*exp(-r*T))
+    
+    for i in range(nos):
+        if np.max(T2[i])>K:
+            payoff_2.append(np.max(T2[i])-K)
+        else:
+            payoff_2.append(0)
+    payoff_2_pv.append(np.mean(payoff_2)*exp(-r*T))
+    
+    for i in range(nos):
+        if np.max(T3[i])>K:
+            payoff_3.append(np.max(T3[i])-K)
+        else:
+            payoff_3.append(0)
+    payoff_3_pv.append(np.mean(payoff_3)*exp(-r*T))
+    
+mean1=np.mean(payoff_1_pv)
+sd1=np.std(payoff_1_pv)
+mean2=np.mean(payoff_2_pv)
+sd2=np.std(payoff_2_pv)
+mean3=np.mean(payoff_3_pv)
+sd3=np.std(payoff_3_pv)
+
+print('正常版')
+print(f'mean of rainbow option is {mean1:6f}')
+print(f'std of rainbow option is {sd1:6f}')
+print(f'95% CI of rainbow option is [{mean1-2*sd1:6f},{mean1+2*sd1:6f}]')
+print()
+print('反向變異法+moment matching')
+print(f'mean of rainbow option is {mean2:6f}')
+print(f'std of rainbow option is {sd2:6f}')
+print(f'95% CI of rainbow option is [{mean2-2*sd2:6f},{mean2+2*sd2:6f}]')
+down1 = (1-sd2/sd1)*100
+print(f'std下降{down1:6f}%')
+print()
+print('Bonus2')
+print(f'mean of rainbow option is {mean3:6f}')
+print(f'std of rainbow option is {sd3:6f}')
+print(f'95% CI of rainbow option is [{mean3-2*sd3:6f},{mean3+2*sd3:6f}]')
+down2 = (1-sd3/sd1)*100
+print(f'std下降{down2:6f}%')
