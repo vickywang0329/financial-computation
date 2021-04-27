@@ -1,0 +1,86 @@
+import numpy as np
+import math
+import tkinter as tk
+from tkinter import messagebox
+from scipy.stats import norm
+
+window=tk.Tk()
+window.title("monte carlo simulation")
+window.geometry('350x300')
+
+labelS0 = tk.Label(window,text = "S0=")
+labelS0.grid(column=0, row=0, sticky=tk.W)
+S0 = tk.Entry(window,show=None)
+S0.grid(column=1, row=0, sticky=tk.W)
+labelr= tk.Label(window,text = "r=")
+labelr.grid(column=0, row=1, sticky=tk.W)
+r = tk.Entry(window,show=None)
+r.grid(column=1, row=1, sticky=tk.W)
+labelq = tk.Label(window,text = "q=")
+labelq.grid(column=0, row=2, sticky=tk.W)
+q = tk.Entry(window,show=None)
+q.grid(column=1, row=2, sticky=tk.W)
+labelsigma  = tk.Label(window,text = "sigma= ")
+labelsigma .grid(column=0, row=3, sticky=tk.W)
+sigma = tk.Entry(window,show=None)
+sigma.grid(column=1, row=3, sticky=tk.W)
+labelT  = tk.Label(window,text = "T= ")
+labelT .grid(column=0, row=4, sticky=tk.W)
+T = tk.Entry(window,show=None)
+T.grid(column=1, row=4, sticky=tk.W)
+K1 = tk.Entry(window,show=None)
+K2 = tk.Entry(window,show=None)
+K3 = tk.Entry(window,show=None)
+K4 = tk.Entry(window,show=None)
+labelK1=tk.Label(window,text = "K1=")
+labelK1.grid(column=0, row=5, sticky=tk.W)
+labelK2=tk.Label(window,text = "K2=")
+labelK2.grid(column=0, row=6, sticky=tk.W)
+labelK3=tk.Label(window,text = "K3=")
+labelK3.grid(column=0, row=7, sticky=tk.W)
+labelK4=tk.Label(window,text = "K4=")
+labelK4.grid(column=0, row=8, sticky=tk.W)
+K1.grid(column=1, row=5, sticky=tk.W)
+K2.grid(column=1, row=6, sticky=tk.W)
+K3.grid(column=1, row=7, sticky=tk.W)
+K4.grid(column=1, row=8, sticky=tk.W)
+
+def call_price():
+    var1= float(S0.get())
+    var2= float(r.get())
+    var3=float(q.get())
+    var4=float(sigma.get())
+    var5=float(T.get())
+    var6=float(K1.get())
+    var7=float(K2.get())
+    var8=float(K3.get())
+    var9=float(K4.get())
+    
+    nd1=norm.cdf((math.log(var1)-math.log(var6)+(var2-var3+0.5*(var4**2))*var5)/var4/(var5**0.5))
+    nd2=norm.cdf((math.log(var1)-math.log(var7)+(var2-var3+0.5*(var4**2))*var5)/var4/(var5**0.5))
+    nd3=norm.cdf((math.log(var1)-math.log(var8)+(var2-var3+0.5*(var4**2))*var5)/var4/(var5**0.5))
+    nd4=norm.cdf((math.log(var1)-math.log(var9)+(var2-var3+0.5*(var4**2))*var5)/var4/(var5**0.5))
+    nb1=norm.cdf((math.log(var1)-math.log(var6)+(var2-var3-0.5*(var4**2))*var5)/var4/(var5**0.5))
+    nb2=norm.cdf((math.log(var1)-math.log(var7)+(var2-var3-0.5*(var4**2))*var5)/var4/(var5**0.5))
+    nb3=norm.cdf((math.log(var1)-math.log(var8)+(var2-var3-0.5*(var4**2))*var5)/var4/(var5**0.5))
+    nb4=norm.cdf((math.log(var1)-math.log(var9)+(var2-var3-0.5*(var4**2))*var5)/var4/(var5**0.5))
+    
+    result=var1*(np.exp(-var3*var5))*(nd1-nd2)\
+            -(np.exp(-var2*var5))*var6*(nb1-nb2)\
+            +(np.exp(-var2*var5))*(var7-var6)*(nb2-nb3)\
+            +var1*(var6-var7)/(var9-var8)*(np.exp(-var3*var5))*(nd3-nd4)\
+            -(np.exp(-var2*var5))*(var6-var7)/(var9-var8)*var9*(nb3-nb4)
+    t.insert(1.0,result)
+
+b = tk.Button(window,text='calculate',command=call_price)
+b.grid(column=0, row=9, sticky=tk.W)
+
+labelCI=tk.Label(window,text = "Expect value=")
+labelCI.grid(column=0, row=10, sticky=tk.W)
+
+t = tk.Text(window,height=2)
+t.grid(column=1, row=10, sticky=tk.W)
+
+
+
+window.mainloop()
