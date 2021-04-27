@@ -1,0 +1,37 @@
+import numpy as np
+import math
+S0 = 100
+r = 0.05
+q = 0.02
+sigma =0.5
+T = 0.4
+K1=90
+K2=98
+K3=102
+K4=104
+def call_price(S0,K1,K2,K3,K4,r,q,sigma,T):
+    import numpy as np
+    import math
+    payoff_pv =[]
+    for i in range(20):
+        samples = np.random.normal(size = 10000)
+        LNST = math.log(S0)+(r-q-sigma**2/2)*T+samples*sigma*T**0.5
+        ST = []
+        for index in range(len(LNST)):
+            ST.append(math.exp(LNST[index]))
+
+        payoff = []
+        for index in range(len(ST)):
+            if K1<ST[index]<K2:
+                payoff.append(ST[index]-K1)
+            elif K2<ST[index]<K3:
+                payoff.append(K3-K2)
+            elif K3<ST[index]<K4:
+                payoff.append((K1-K2)/(K4-K3)*(ST[index]-K4))
+            else:
+                payoff.append(0)
+        print(payoff)
+        payoff_pv.append(np.mean(payoff)*np.exp(-r*T))
+    mean=np.mean(payoff_pv)
+    sd = np.std(payoff_pv)
+    print("95% Confidence interval of call price is [",mean-2*sd,",",mean+2*sd,"]")
