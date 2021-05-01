@@ -1,6 +1,5 @@
 import numpy as np
 import math
-import pandas as pd
 
 S0 = 100
 r = 0.05
@@ -12,8 +11,6 @@ K2=98
 K3=102
 K4=104
 def call_price(S0,K1,K2,K3,K4,r,q,sigma,T):
-    import numpy as np
-    import math
     payoff_pv =[]
     for i in range(20):
         samples = np.random.normal(size = 10000)
